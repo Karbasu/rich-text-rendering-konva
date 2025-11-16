@@ -55,6 +55,14 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
     activeNode?.applyStyle({ letterSpacing: spacing });
   };
 
+  const handleHighlight = (color: string) => {
+    activeNode?.applyStyle({ backgroundColor: color });
+  };
+
+  const handleRemoveHighlight = () => {
+    activeNode?.applyStyle({ backgroundColor: undefined });
+  };
+
   const handleBulletList = () => {
     activeNode?.toggleBulletList();
   };
@@ -267,6 +275,40 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
         disabled={!activeNode}
         title="Text Color"
       />
+
+      <input
+        type="color"
+        defaultValue="#FFFF00"
+        onChange={(e) => handleHighlight(e.target.value)}
+        style={{
+          width: '36px',
+          height: '30px',
+          padding: '2px',
+          background: '#FFFF00',
+          border: '1px solid #555',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+        disabled={!activeNode}
+        title="Highlight Color"
+      />
+
+      <button
+        onClick={handleRemoveHighlight}
+        style={{
+          padding: '6px 10px',
+          background: '#3d3d3d',
+          color: 'white',
+          border: '1px solid #555',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          fontSize: '12px',
+        }}
+        disabled={!activeNode}
+        title="Remove Highlight"
+      >
+        ✕HL
+      </button>
 
       <button
         onClick={handleStroke}

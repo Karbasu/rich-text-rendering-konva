@@ -14,5 +14,8 @@ export * from './layout-engine';
 // Renderer
 export * from './renderer';
 
+// HTML Parser for external paste support
+export * from './html-parser';
+
 // Main component
 export { RichTextNode } from './RichTextNode';

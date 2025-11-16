@@ -95,14 +95,36 @@ The editor supports rich text copy/paste:
 - Paste with `Ctrl+V` - restores original styles
 - Cut with `Ctrl+X` - copies with styles and removes selection
 
-**External Paste:**
-- Pasting from other sources (web, Word, etc.) inserts as plain text
-- Uses current style settings for inserted text
+**External Paste (Google Docs, Word, Canva, etc.):**
+- Pasting from external sources **preserves formatting**!
+- Supported styles: bold, italic, underline, strikethrough
+- Colors (text and background/highlight)
+- Font family and size
+- Line height and letter spacing
 
 **How it works:**
-- Rich text data is embedded in clipboard as custom HTML attribute
-- When pasting, editor checks for this data first
-- Falls back to plain text if no rich data found
+1. First checks for internal format (our custom JSON in HTML attribute)
+2. If not found, parses external HTML tags and inline styles
+3. Converts `<b>`, `<strong>`, `<i>`, `<em>`, `<u>`, `<span style="...">`, etc.
+4. Falls back to plain text if no HTML found
+
+**Parsed HTML Tags:**
+- `<b>`, `<strong>` → Bold
+- `<i>`, `<em>` → Italic
+- `<u>` → Underline
+- `<s>`, `<strike>`, `<del>` → Strikethrough
+- `<mark>` → Highlight (yellow background)
+
+**Parsed CSS Properties:**
+- `font-weight` → Bold/normal
+- `font-style` → Italic/normal
+- `font-size` → Font size (pt converted to px)
+- `font-family` → Font family
+- `color` → Text color
+- `background-color` → Highlight color
+- `text-decoration` → Underline/strikethrough
+- `letter-spacing` → Letter spacing
+- `line-height` → Line height
 
 ### Set Text Alignment
 

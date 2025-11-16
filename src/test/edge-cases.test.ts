@@ -114,7 +114,8 @@ describe('Edge Cases - Boundary Conditions', () => {
       listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
-    expect(layout.lines.length).toBe(3);
+    // 3 newlines = 4 lines (including empty line after last newline for cursor)
+    expect(layout.lines.length).toBe(4);
   });
 
   it('should handle only whitespace', () => {

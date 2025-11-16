@@ -102,21 +102,73 @@ function renderListMarkers(ctx: CanvasRenderingContext2D, layout: LayoutResult):
     const textY = line.y + line.baseline;
 
     if (line.listItem.type === 'bullet') {
-      // Draw bullet point
-      const bulletSize = style.fontSize * 0.3;
+      // Draw different bullet styles based on nesting level
+      const bulletSize = style.fontSize * 0.25;
       const bulletY = textY - style.fontSize * 0.35;
+      const level = line.listItem.level % 3; // Cycle through 3 styles
+
       ctx.beginPath();
-      ctx.arc(markerX, bulletY, bulletSize, 0, Math.PI * 2);
-      ctx.fill();
+
+      if (level === 0) {
+        // Filled circle (●)
+        ctx.arc(markerX, bulletY, bulletSize, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (level === 1) {
+        // Empty circle (○)
+        ctx.arc(markerX, bulletY, bulletSize, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        // Filled square (■)
+        const squareSize = bulletSize * 1.6;
+        ctx.fillRect(
+          markerX - squareSize / 2,
+          bulletY - squareSize / 2,
+          squareSize,
+          squareSize
+        );
+      }
     } else if (line.listItem.type === 'number') {
-      // Draw number
-      const numberText = `${line.listItem.index}.`;
+      // Draw different number styles based on nesting level
+      const level = line.listItem.level % 3;
+      let numberText: string;
+
+      if (level === 0) {
+        // Arabic numerals (1. 2. 3.)
+        numberText = `${line.listItem.index}.`;
+      } else if (level === 1) {
+        // Lowercase letters (a. b. c.)
+        numberText = `${String.fromCharCode(96 + ((line.listItem.index - 1) % 26) + 1)}.`;
+      } else {
+        // Roman numerals (i. ii. iii.)
+        numberText = `${toRomanNumeral(line.listItem.index)}.`;
+      }
+
       const numberWidth = ctx.measureText(numberText).width;
       ctx.fillText(numberText, markerX - numberWidth / 2, textY);
     }
 
     renderedSourceLines.add(line.lineIndex);
   }
+}
+
+/**
+ * Convert number to lowercase Roman numeral
+ */
+function toRomanNumeral(num: number): string {
+  const romanNumerals = [
+    ['', 'i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix'],
+    ['', 'x', 'xx', 'xxx', 'xl', 'l', 'lx', 'lxx', 'lxxx', 'xc'],
+    ['', 'c', 'cc', 'ccc', 'cd', 'd', 'dc', 'dcc', 'dccc', 'cm'],
+  ];
+
+  if (num <= 0 || num > 399) return num.toString();
+
+  const hundreds = Math.floor(num / 100);
+  const tens = Math.floor((num % 100) / 10);
+  const ones = num % 10;
+
+  return romanNumerals[2][hundreds] + romanNumerals[1][tens] + romanNumerals[0][ones];
 }
 
 /**

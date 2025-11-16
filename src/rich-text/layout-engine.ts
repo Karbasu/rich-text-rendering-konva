@@ -542,6 +542,52 @@ export function hitTest(
 }
 
 /**
+ * Check if a click is in the bullet/number zone of a list item
+ * Returns the line index if in bullet zone, -1 otherwise
+ */
+export function hitTestBulletZone(
+  layout: LayoutResult,
+  x: number,
+  y: number,
+  doc: RichTextDocument
+): { inBulletZone: boolean; lineIndex: number } {
+  if (layout.lines.length === 0) {
+    return { inBulletZone: false, lineIndex: -1 };
+  }
+
+  // Find the line at this y coordinate
+  let targetLine: LayoutLine | null = null;
+
+  for (const line of layout.lines) {
+    if (y >= line.y && y < line.y + line.height) {
+      targetLine = line;
+      break;
+    }
+  }
+
+  if (!targetLine) {
+    return { inBulletZone: false, lineIndex: -1 };
+  }
+
+  // Check if this line has a list item
+  const listItem = doc.listItems.get(targetLine.lineIndex);
+  if (!listItem) {
+    return { inBulletZone: false, lineIndex: targetLine.lineIndex };
+  }
+
+  // Check if click is in the bullet zone (before text starts)
+  // The bullet zone is from padding to where the text starts (listIndent)
+  const bulletZoneStart = doc.padding;
+  const bulletZoneEnd = targetLine.listIndent;
+
+  if (x >= bulletZoneStart && x < bulletZoneEnd) {
+    return { inBulletZone: true, lineIndex: targetLine.lineIndex };
+  }
+
+  return { inBulletZone: false, lineIndex: targetLine.lineIndex };
+}
+
+/**
  * Get selection boxes for visual rendering
  */
 export function getSelectionBoxes(

@@ -33,7 +33,7 @@ import {
   isLineEmpty,
   getLineStartPosition,
 } from './document-model';
-import { layoutText, getCaretPosition, hitTest } from './layout-engine';
+import { layoutText, getCaretPosition, hitTest, hitTestBulletZone } from './layout-engine';
 import { renderTextToCanvas } from './renderer';
 
 interface RichTextNodeConfig extends Konva.GroupConfig {
@@ -180,8 +180,18 @@ export class RichTextNode extends Konva.Group {
       this.startEditing();
     }
 
-    // Place caret at click position
-    const charIndex = hitTest(this._layout, pos.x, pos.y, this._document);
+    // Check if click is in bullet zone
+    const bulletZoneResult = hitTestBulletZone(this._layout, pos.x, pos.y, this._document);
+
+    let charIndex: number;
+    if (bulletZoneResult.inBulletZone) {
+      // Click in bullet zone - place caret at start of that line's text
+      charIndex = getLineStartPosition(this._document, bulletZoneResult.lineIndex);
+    } else {
+      // Normal click - place caret at click position
+      charIndex = hitTest(this._layout, pos.x, pos.y, this._document);
+    }
+
     this._selection = { anchor: charIndex, focus: charIndex };
     this._updateCurrentStyle();
     this._render();
@@ -198,11 +208,39 @@ export class RichTextNode extends Konva.Group {
     const pos = this._getRelativePointerPosition(e);
     if (!pos) return;
 
-    const charIndex = hitTest(this._layout, pos.x, pos.y, this._document);
-    const { start, end } = this._getWordBoundaries(charIndex);
+    // Check if double-click is in bullet zone
+    const bulletZoneResult = hitTestBulletZone(this._layout, pos.x, pos.y, this._document);
 
-    this._selection = { anchor: start, focus: end };
-    this._render();
+    if (bulletZoneResult.inBulletZone) {
+      // Double-click in bullet zone - exit list for this line
+      const lineIndex = bulletZoneResult.lineIndex;
+      const listItem = this._document.listItems.get(lineIndex);
+
+      if (listItem) {
+        // Remove list formatting from this paragraph only
+        const newListItems = new Map(this._document.listItems);
+        newListItems.delete(lineIndex);
+        this._document = { ...this._document, listItems: newListItems };
+
+        // Renumber remaining list items
+        this._document = renumberLists(this._document);
+
+        // Place caret at start of text
+        const caretPos = getLineStartPosition(this._document, lineIndex);
+        this._selection = { anchor: caretPos, focus: caretPos };
+
+        this._updateLayout();
+        this._render();
+        this._pushHistory();
+      }
+    } else {
+      // Normal double-click - select word
+      const charIndex = hitTest(this._layout, pos.x, pos.y, this._document);
+      const { start, end } = this._getWordBoundaries(charIndex);
+
+      this._selection = { anchor: start, focus: end };
+      this._render();
+    }
   }
 
   /**
@@ -413,11 +451,18 @@ export class RichTextNode extends Konva.Group {
       // Renumber lists after deletion
       this._document = renumberLists(this._document);
     } else if (currentListItem && this._selection.focus === lineStart) {
-      // At start of a list item - remove the list formatting instead of deleting character
-      const newListItems = new Map(this._document.listItems);
-      newListItems.delete(currentLineIndex);
-      this._document = { ...this._document, listItems: newListItems };
-      this._document = renumberLists(this._document);
+      // At start of a list item
+      if (currentListItem.level > 0) {
+        // Outdent first (decrease indentation level)
+        this._document = outdentListItem(this._document, currentLineIndex);
+        this._document = renumberLists(this._document);
+      } else {
+        // At level 0 - remove list formatting entirely
+        const newListItems = new Map(this._document.listItems);
+        newListItems.delete(currentLineIndex);
+        this._document = { ...this._document, listItems: newListItems };
+        this._document = renumberLists(this._document);
+      }
     } else if (this._selection.focus > 0) {
       // Check if we're deleting a newline that would merge lines
       const chars = this._document.spans.map(s => s.text).join('');
@@ -516,6 +561,53 @@ export class RichTextNode extends Konva.Group {
       const newListItems = new Map(this._document.listItems);
       newListItems.delete(currentLineIndex);
       this._document = { ...this._document, listItems: newListItems };
+      this._updateLayout();
+      this._render();
+      this._pushHistory();
+      this._resetCaretBlink();
+      return;
+    }
+
+    // Check if caret is at the very start of a non-empty list item
+    const lineStart = getLineStartPosition(this._document, currentLineIndex);
+    const isAtLineStart = this._selection.focus === lineStart && this._selection.anchor === this._selection.focus;
+
+    if (currentListItem && isAtLineStart && !isLineEmpty(this._document, currentLineIndex)) {
+      // Special case: caret at start of non-empty list item
+      // Create new empty list item ABOVE current, caret moves to new item
+      const newListItems = new Map(this._document.listItems);
+
+      // Shift all list items from current line onwards down by 1
+      const entries = Array.from(this._document.listItems.entries()).sort((a, b) => b[0] - a[0]);
+      for (const [lineIdx, item] of entries) {
+        if (lineIdx >= currentLineIndex) {
+          newListItems.delete(lineIdx);
+          newListItems.set(lineIdx + 1, item);
+        }
+      }
+
+      // Insert new empty list item at current line index
+      newListItems.set(currentLineIndex, {
+        type: currentListItem.type,
+        level: currentListItem.level,
+        index: currentListItem.type === 'number' ? currentListItem.index : 0,
+      });
+
+      // Insert newline before current text (at lineStart position)
+      const { doc } = replaceSelection(
+        this._document,
+        { anchor: lineStart, focus: lineStart },
+        '\n',
+        this._currentStyle
+      );
+
+      this._document = { ...doc, listItems: newListItems };
+      // Caret stays at original position (which is now start of the text that moved down)
+      this._selection = { anchor: lineStart, focus: lineStart };
+
+      // Renumber to ensure consistency
+      this._document = renumberLists(this._document);
+
       this._updateLayout();
       this._render();
       this._pushHistory();

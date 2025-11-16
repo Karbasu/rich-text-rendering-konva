@@ -33,6 +33,9 @@ layer.add(textNode);
 | `Ctrl+B` | Bold |
 | `Ctrl+I` | Italic |
 | `Ctrl+U` | Underline |
+| `Ctrl+C` | Copy (preserves styles) |
+| `Ctrl+X` | Cut (preserves styles) |
+| `Ctrl+V` | Paste (restores styles if from this editor) |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` | Redo |
 | `Ctrl+A` | Select All |
@@ -82,6 +85,24 @@ textNode.applyStyle({ backgroundColor: '#FFFF00' }); // Yellow highlight
 // Remove highlight
 textNode.applyStyle({ backgroundColor: undefined });
 ```
+
+### Copy/Paste with Style Preservation
+
+The editor supports rich text copy/paste:
+
+**Internal Copy/Paste:**
+- Copy text with `Ctrl+C` - preserves all formatting (bold, italic, colors, fonts)
+- Paste with `Ctrl+V` - restores original styles
+- Cut with `Ctrl+X` - copies with styles and removes selection
+
+**External Paste:**
+- Pasting from other sources (web, Word, etc.) inserts as plain text
+- Uses current style settings for inserted text
+
+**How it works:**
+- Rich text data is embedded in clipboard as custom HTML attribute
+- When pasting, editor checks for this data first
+- Falls back to plain text if no rich data found
 
 ### Set Text Alignment
 

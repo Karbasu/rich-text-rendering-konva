@@ -458,6 +458,133 @@ export function getSelectedText(
 }
 
 /**
+ * Extract styled spans from a selection range
+ * Returns an array of spans that can be serialized for rich copy/paste
+ */
+export function extractStyledSpans(
+  doc: RichTextDocument,
+  selection: Selection
+): TextSpan[] {
+  const start = Math.min(selection.anchor, selection.focus);
+  const end = Math.max(selection.anchor, selection.focus);
+
+  if (start === end) return [];
+
+  const chars = flattenDocument(doc);
+  const selectedChars = chars.slice(start, end);
+
+  if (selectedChars.length === 0) return [];
+
+  // Group consecutive chars with same style into spans
+  const result: TextSpan[] = [];
+  let currentSpan: TextSpan | null = null;
+
+  for (const char of selectedChars) {
+    if (!currentSpan || !stylesEqual(currentSpan.style, char.style)) {
+      // Start new span
+      if (currentSpan) {
+        result.push(currentSpan);
+      }
+      currentSpan = {
+        id: generateSpanId(),
+        text: char.char,
+        style: { ...char.style },
+      };
+    } else {
+      // Add to current span
+      currentSpan.text += char.char;
+    }
+  }
+
+  if (currentSpan) {
+    result.push(currentSpan);
+  }
+
+  return result;
+}
+
+/**
+ * Insert styled spans at a position in the document
+ * Used for rich paste operations
+ */
+export function insertStyledSpans(
+  doc: RichTextDocument,
+  position: AbsolutePosition,
+  spans: TextSpan[]
+): { doc: RichTextDocument; newPosition: AbsolutePosition } {
+  if (spans.length === 0) {
+    return { doc, newPosition: position };
+  }
+
+  // Calculate total length of inserted text
+  const insertedLength = spans.reduce((sum, span) => sum + span.text.length, 0);
+
+  // Find where to insert
+  const { spanIndex, charOffset } = absoluteToSpanPosition(doc, position);
+
+  const newSpans: TextSpan[] = [];
+
+  // Add spans before insertion point
+  for (let i = 0; i < spanIndex; i++) {
+    newSpans.push(doc.spans[i]);
+  }
+
+  // Split the current span if needed
+  const currentSpan = doc.spans[spanIndex];
+  if (currentSpan) {
+    // Add text before insertion point
+    if (charOffset > 0) {
+      newSpans.push({
+        id: currentSpan.id,
+        text: currentSpan.text.slice(0, charOffset),
+        style: currentSpan.style,
+      });
+    }
+
+    // Add the new styled spans
+    for (const span of spans) {
+      newSpans.push({
+        id: generateSpanId(),
+        text: span.text,
+        style: { ...span.style },
+      });
+    }
+
+    // Add text after insertion point
+    if (charOffset < currentSpan.text.length) {
+      newSpans.push({
+        id: generateSpanId(),
+        text: currentSpan.text.slice(charOffset),
+        style: currentSpan.style,
+      });
+    }
+  } else {
+    // No current span, just add the new spans
+    for (const span of spans) {
+      newSpans.push({
+        id: generateSpanId(),
+        text: span.text,
+        style: { ...span.style },
+      });
+    }
+  }
+
+  // Add remaining spans
+  for (let i = spanIndex + 1; i < doc.spans.length; i++) {
+    newSpans.push(doc.spans[i]);
+  }
+
+  // Normalize and return
+  const normalizedSpans = normalizeSpans(newSpans);
+  const newDoc = { ...doc, spans: normalizedSpans };
+
+  return {
+    doc: newDoc,
+    newPosition: position + insertedLength,
+  };
+}
+
+/**
  * Replace selected text with new text
  */
 export function replaceSelection(

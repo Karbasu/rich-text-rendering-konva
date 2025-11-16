@@ -469,9 +469,11 @@ export function getCaretPosition(
   }
 
   // Find the character just before the caret position
+  let foundChar = false;
   for (let i = 0; i < layout.chars.length; i++) {
     if (layout.chars[i].char.absoluteIndex === absoluteIndex - 1) {
       const char = layout.chars[i];
+      foundChar = true;
 
       // Special case: if the character before caret is a newline,
       // position caret at start of NEXT line, not end of current line
@@ -510,6 +512,48 @@ export function getCaretPosition(
         y: char.y,
         height: char.height,
       };
+    }
+  }
+
+  // Character not found - this happens when caret is after a newline character
+  // because newlines aren't included in positioned chars
+  if (!foundChar && layout.chars.length > 0) {
+    // Check if there's a newline in the document at absoluteIndex - 1
+    const docText = doc.spans.map(s => s.text).join('');
+    if (absoluteIndex > 0 && absoluteIndex <= docText.length && docText[absoluteIndex - 1] === '\n') {
+      // Caret is after a newline - position on the next line
+      // Count how many newlines are before this position to find the right source line
+      let newlineCount = 0;
+      for (let i = 0; i < absoluteIndex; i++) {
+        if (docText[i] === '\n') {
+          newlineCount++;
+        }
+      }
+
+      // Find the line for this source line index
+      for (const line of layout.lines) {
+        if (line.lineIndex === newlineCount) {
+          const listIndent = line.listIndent || 0;
+          return {
+            x: padding + listIndent,
+            y: line.y,
+            height: line.height,
+          };
+        }
+      }
+
+      // Fallback: position after the last line
+      const lastLine = layout.lines[layout.lines.length - 1];
+      if (lastLine) {
+        const nextLineY = lastLine.y + lastLine.height;
+        const nextListItem = doc.listItems.get(newlineCount);
+        const nextListIndent = nextListItem ? getListIndentForItem(nextListItem) : 0;
+        return {
+          x: padding + nextListIndent,
+          y: nextLineY,
+          height: lastLine.height,
+        };
+      }
     }
   }
 

@@ -267,6 +267,16 @@ export class RichTextNode extends Konva.Group {
     const newWidth = Math.max(this._minWidth, this._boxWidth * scaleX);
     const newHeight = Math.max(this._minHeight, this._boxHeight * scaleY);
 
+    // Check if this is a proportional scale (diagonal corner drag)
+    // If scaleX and scaleY are approximately equal, scale the text
+    const isProportionalScale = Math.abs(scaleX - scaleY) < 0.01 && scaleX !== 1;
+
+    if (isProportionalScale) {
+      // Scale all font sizes proportionally
+      const scaleFactor = (scaleX + scaleY) / 2;
+      this._scaleAllFontSizes(scaleFactor);
+    }
+
     // Reset scale and update dimensions
     this.scaleX(1);
     this.scaleY(1);
@@ -276,6 +286,27 @@ export class RichTextNode extends Konva.Group {
 
     this._updateLayout();
     this._render();
+  }
+
+  /**
+   * Scale all font sizes in the document
+   */
+  private _scaleAllFontSizes(factor: number): void {
+    const newSpans = this._document.spans.map((span) => ({
+      ...span,
+      style: {
+        ...span.style,
+        fontSize: Math.round(span.style.fontSize * factor),
+        letterSpacing: span.style.letterSpacing * factor,
+      },
+    }));
+
+    this._document = {
+      ...this._document,
+      spans: newSpans,
+    };
+
+    this._pushHistory();
   }
 
   /**
@@ -874,7 +905,15 @@ export class RichTextNode extends Konva.Group {
    */
   public toggleBold(): void {
     if (this._selection.anchor === this._selection.focus) {
-      // No selection, toggle for future input
+      // No character selection - apply to ALL text
+      const length = getDocumentLength(this._document);
+      if (length > 0) {
+        this._document = toggleBoldInRange(this._document, 0, length);
+        this._updateLayout();
+        this._render();
+        this._pushHistory();
+      }
+      // Also update current style for future input
       this._currentStyle.fontWeight =
         this._currentStyle.fontWeight === 'bold' ? 'normal' : 'bold';
     } else {
@@ -892,6 +931,14 @@ export class RichTextNode extends Konva.Group {
    */
   public toggleItalic(): void {
     if (this._selection.anchor === this._selection.focus) {
+      // No character selection - apply to ALL text
+      const length = getDocumentLength(this._document);
+      if (length > 0) {
+        this._document = toggleItalicInRange(this._document, 0, length);
+        this._updateLayout();
+        this._render();
+        this._pushHistory();
+      }
       this._currentStyle.fontStyle =
         this._currentStyle.fontStyle === 'italic' ? 'normal' : 'italic';
     } else {
@@ -909,6 +956,14 @@ export class RichTextNode extends Konva.Group {
    */
   public toggleUnderline(): void {
     if (this._selection.anchor === this._selection.focus) {
+      // No character selection - apply to ALL text
+      const length = getDocumentLength(this._document);
+      if (length > 0) {
+        this._document = toggleStyleInRange(this._document, 0, length, 'underline');
+        this._updateLayout();
+        this._render();
+        this._pushHistory();
+      }
       this._currentStyle.underline = !this._currentStyle.underline;
     } else {
       const start = Math.min(this._selection.anchor, this._selection.focus);
@@ -925,6 +980,15 @@ export class RichTextNode extends Konva.Group {
    */
   public applyStyle(style: Partial<TextStyle>): void {
     if (this._selection.anchor === this._selection.focus) {
+      // No character selection - apply to ALL text
+      const length = getDocumentLength(this._document);
+      if (length > 0) {
+        this._document = applyStyleToRange(this._document, 0, length, style);
+        this._updateLayout();
+        this._render();
+        this._pushHistory();
+      }
+      // Also update current style for future input
       this._currentStyle = { ...this._currentStyle, ...style };
     } else {
       const start = Math.min(this._selection.anchor, this._selection.focus);

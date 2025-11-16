@@ -55,6 +55,10 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
     activeNode?.applyStyle({ letterSpacing: spacing });
   };
 
+  const handleLineHeight = (height: number) => {
+    activeNode?.applyStyle({ lineHeight: height });
+  };
+
   const handleHighlight = (color: string) => {
     activeNode?.applyStyle({ backgroundColor: color });
   };
@@ -359,6 +363,28 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
         <option value="2">Spacing: 2</option>
         <option value="4">Spacing: 4</option>
         <option value="8">Spacing: 8</option>
+      </select>
+
+      <select
+        onChange={(e) => handleLineHeight(parseFloat(e.target.value))}
+        style={{
+          padding: '6px',
+          background: '#3d3d3d',
+          color: 'white',
+          border: '1px solid #555',
+          borderRadius: '4px',
+        }}
+        disabled={!activeNode}
+        defaultValue="1.4"
+        title="Line Height"
+      >
+        <option value="1">Line: 1.0</option>
+        <option value="1.2">Line: 1.2</option>
+        <option value="1.4">Line: 1.4</option>
+        <option value="1.6">Line: 1.6</option>
+        <option value="1.8">Line: 1.8</option>
+        <option value="2">Line: 2.0</option>
+        <option value="2.5">Line: 2.5</option>
       </select>
 
       <div style={{ width: '1px', height: '30px', background: '#555' }} />

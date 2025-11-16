@@ -786,6 +786,12 @@ export class RichTextNode extends Konva.Group {
    * Push current state to history
    */
   private _pushHistory(): void {
+    // Guard against early initialization (before class fields are set)
+    if (!this._history) {
+      this._history = [];
+      this._historyIndex = -1;
+    }
+
     // Remove any future history if we're not at the end
     if (this._historyIndex < this._history.length - 1) {
       this._history = this._history.slice(0, this._historyIndex + 1);
@@ -937,9 +943,13 @@ export class RichTextNode extends Konva.Group {
   public setDocument(doc: RichTextDocument): void {
     this._document = cloneDocument(doc);
     this._selection = { anchor: 0, focus: 0 };
-    this._updateLayout();
-    this._render();
-    this._pushHistory();
+
+    // Guard against being called from Konva's super() before initialization
+    if (this._textImage) {
+      this._updateLayout();
+      this._render();
+      this._pushHistory();
+    }
   }
 
   /**

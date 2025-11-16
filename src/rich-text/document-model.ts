@@ -680,35 +680,63 @@ export function removeListItemAtLine(
 
 /**
  * Renumber all ordered lists to ensure consecutive numbering
+ * Scope-aware: resets numbering for nested levels and separate list blocks
  */
 export function renumberLists(doc: RichTextDocument): RichTextDocument {
   const newListItems = new Map(doc.listItems);
+  const totalLines = doc.spans.map(s => s.text).join('').split('\n').length;
 
-  // Group consecutive numbered list items by level
-  const sortedLines = Array.from(newListItems.keys()).sort((a, b) => a - b);
-
-  // Track current number for each level
+  // Track counters per level
   const levelCounters = new Map<number, number>();
+  let lastLineIdx = -2; // Track to detect non-consecutive lines
 
-  for (const lineIdx of sortedLines) {
+  for (let lineIdx = 0; lineIdx < totalLines; lineIdx++) {
     const item = newListItems.get(lineIdx);
-    if (!item || item.type !== 'number') {
-      // Reset counters when we hit non-numbered items
+
+    if (!item) {
+      // Not a list item - reset all counters (list block ended)
       levelCounters.clear();
+      lastLineIdx = lineIdx;
       continue;
+    }
+
+    // Check if this is a new list block (non-consecutive lines)
+    if (lineIdx - lastLineIdx > 1) {
+      levelCounters.clear();
+    }
+
+    if (item.type !== 'number') {
+      // Bullet list item - reset deeper level counters
+      const keysToDelete: number[] = [];
+      for (const [level] of levelCounters) {
+        if (level > item.level) {
+          keysToDelete.push(level);
+        }
+      }
+      for (const key of keysToDelete) {
+        levelCounters.delete(key);
+      }
+      lastLineIdx = lineIdx;
+      continue;
+    }
+
+    // Numbered list item
+
+    // Reset deeper level counters when going to parent level
+    const keysToDelete: number[] = [];
+    for (const [level] of levelCounters) {
+      if (level > item.level) {
+        keysToDelete.push(level);
+      }
+    }
+    for (const key of keysToDelete) {
+      levelCounters.delete(key);
     }
 
     // Get or initialize counter for this level
     const currentCount = levelCounters.get(item.level) || 0;
     const newCount = currentCount + 1;
     levelCounters.set(item.level, newCount);
-
-    // Reset deeper level counters
-    for (const [level] of levelCounters) {
-      if (level > item.level) {
-        levelCounters.delete(level);
-      }
-    }
 
     // Update the item with correct number
     if (item.index !== newCount) {
@@ -717,6 +745,8 @@ export function renumberLists(doc: RichTextDocument): RichTextDocument {
         index: newCount,
       });
     }
+
+    lastLineIdx = lineIdx;
   }
 
   return {

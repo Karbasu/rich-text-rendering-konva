@@ -401,6 +401,12 @@ const App: React.FC = () => {
     });
 
     textNode.on('editstart', () => {
+      // Stop editing on all other text nodes
+      textNodesRef.current.forEach((node) => {
+        if (node !== textNode) {
+          node.stopEditing();
+        }
+      });
       // Hide transformer handles while editing
       transformer.nodes([]);
       layer.batchDraw();
@@ -469,6 +475,12 @@ const App: React.FC = () => {
     });
 
     textNode.on('editstart', () => {
+      // Stop editing on all other text nodes
+      textNodesRef.current.forEach((node) => {
+        if (node !== textNode) {
+          node.stopEditing();
+        }
+      });
       transformerRef.current!.nodes([]);
       layerRef.current!.batchDraw();
     });

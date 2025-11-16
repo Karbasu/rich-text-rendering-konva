@@ -267,16 +267,6 @@ export class RichTextNode extends Konva.Group {
     const newWidth = Math.max(this._minWidth, this._boxWidth * scaleX);
     const newHeight = Math.max(this._minHeight, this._boxHeight * scaleY);
 
-    // Check if this is a proportional scale (diagonal corner drag)
-    // If scaleX and scaleY are approximately equal, scale the text
-    const isProportionalScale = Math.abs(scaleX - scaleY) < 0.01 && scaleX !== 1;
-
-    if (isProportionalScale) {
-      // Scale all font sizes proportionally
-      const scaleFactor = (scaleX + scaleY) / 2;
-      this._scaleAllFontSizes(scaleFactor);
-    }
-
     // Reset scale and update dimensions
     this.scaleX(1);
     this.scaleY(1);
@@ -286,27 +276,6 @@ export class RichTextNode extends Konva.Group {
 
     this._updateLayout();
     this._render();
-  }
-
-  /**
-   * Scale all font sizes in the document
-   */
-  private _scaleAllFontSizes(factor: number): void {
-    const newSpans = this._document.spans.map((span) => ({
-      ...span,
-      style: {
-        ...span.style,
-        fontSize: Math.round(span.style.fontSize * factor),
-        letterSpacing: span.style.letterSpacing * factor,
-      },
-    }));
-
-    this._document = {
-      ...this._document,
-      spans: newSpans,
-    };
-
-    this._pushHistory();
   }
 
   /**

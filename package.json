@@ -1,0 +1,33 @@
+{
+  "name": "rich-text-rendering-konva",
+  "version": "1.0.0",
+  "description": "A fully custom Rich Text Editor built on Konva.js canvas, inspired by Canva",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "konva",
+    "rich-text-editor",
+    "canvas",
+    "text-rendering"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "konva": "^9.3.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-konva": "^18.2.10"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  }
+}

@@ -15,6 +15,7 @@ describe('Edge Cases - Empty Spans Array', () => {
     align: 'left',
     verticalAlign: 'top',
     padding: 8,
+    listItems: new Map(),
   };
 
   it('should handle absoluteToSpanPosition with empty spans', () => {
@@ -74,6 +75,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
     expect(layout.chars.length).toBe(10000);
@@ -85,6 +87,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
     expect(layout.chars.length).toBe(22); // Corrected count
@@ -96,6 +99,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const chars = flattenDocument(doc);
     expect(chars.length).toBe(6); // 4 Chinese chars + 2 for emoji (surrogate pair)
@@ -107,6 +111,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
     expect(layout.lines.length).toBe(3);
@@ -118,6 +123,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
     expect(layout.chars.length).toBe(3);
@@ -129,6 +135,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 0,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 400, 300);
     expect(layout.chars[0].x).toBeGreaterThanOrEqual(0);
@@ -140,6 +147,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const layout = layoutText(doc, 50, 300); // Very narrow
     expect(layout.lines.length).toBeGreaterThan(1);
@@ -151,6 +159,7 @@ describe('Edge Cases - Boundary Conditions', () => {
       align: 'left',
       verticalAlign: 'top',
       padding: 8,
+      listItems: new Map(),
     };
     const pos = absoluteToSpanPosition(doc, 100);
     expect(pos.spanIndex).toBe(0);

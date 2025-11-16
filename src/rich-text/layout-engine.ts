@@ -202,6 +202,16 @@ function calculateLineMetrics(chars: StyledChar[]): {
 }
 
 /**
+ * Calculate list indentation in pixels
+ */
+function getListIndent(listItem: import('./types').ListItem | undefined): number {
+  if (!listItem) return 0;
+  const baseIndent = 24; // Base indent for bullets/numbers
+  const levelIndent = 20; // Additional indent per level
+  return baseIndent + listItem.level * levelIndent;
+}
+
+/**
  * Main layout algorithm: break text into lines and position characters
  */
 export function layoutText(
@@ -211,14 +221,19 @@ export function layoutText(
 ): LayoutResult {
   const chars = flattenDocument(doc);
   const tokens = tokenize(chars);
-  const availableWidth = containerWidth - doc.padding * 2;
+  const baseAvailableWidth = containerWidth - doc.padding * 2;
 
   const lines: LayoutLine[] = [];
   let currentLineChars: StyledChar[] = [];
   let currentLineWidth = 0;
   let currentY = doc.padding;
+  let sourceLineIndex = 0; // Track logical line in source (based on newlines)
 
-  const finalizeLine = (isLastLine: boolean = false) => {
+  const finalizeLine = (isLastLine: boolean = false, isNewlineTerminated: boolean = false) => {
+    const listItem = doc.listItems?.get(sourceLineIndex);
+    const listIndent = getListIndent(listItem);
+    const availableWidth = baseAvailableWidth - listIndent;
+
     if (currentLineChars.length === 0) {
       // Empty line (from newline character)
       const metrics = calculateLineMetrics([]);
@@ -229,6 +244,8 @@ export function layoutText(
         baseline: metrics.baseline,
         width: 0,
         lineIndex: lines.length,
+        listItem,
+        listIndent,
       });
       currentY += metrics.height;
     } else {
@@ -238,7 +255,7 @@ export function layoutText(
         doc.align,
         availableWidth,
         currentLineWidth,
-        doc.padding,
+        doc.padding + listIndent,
         currentY,
         metrics.baseline,
         lines.length,
@@ -252,6 +269,8 @@ export function layoutText(
         baseline: metrics.baseline,
         width: currentLineWidth,
         lineIndex: lines.length,
+        listItem,
+        listIndent,
       });
 
       currentY += metrics.height;
@@ -259,6 +278,11 @@ export function layoutText(
 
     currentLineChars = [];
     currentLineWidth = 0;
+
+    // Increment source line index when we hit a newline
+    if (isNewlineTerminated) {
+      sourceLineIndex++;
+    }
   };
 
   // Process tokens and break into lines
@@ -266,9 +290,14 @@ export function layoutText(
     const token = tokens[i];
 
     if (token.type === 'newline') {
-      finalizeLine();
+      finalizeLine(false, true);
       continue;
     }
+
+    // Get current list indent for this source line
+    const listItem = doc.listItems?.get(sourceLineIndex);
+    const listIndent = getListIndent(listItem);
+    const availableWidth = baseAvailableWidth - listIndent;
 
     // Check if token fits on current line
     if (currentLineWidth + token.width <= availableWidth || currentLineChars.length === 0) {
@@ -279,10 +308,10 @@ export function layoutText(
       // Need to wrap
       if (token.type === 'whitespace') {
         // Don't start new line with whitespace
-        finalizeLine();
+        finalizeLine(false, false);
       } else {
         // Word doesn't fit - wrap
-        finalizeLine();
+        finalizeLine(false, false);
         currentLineChars.push(...token.chars);
         currentLineWidth = token.width;
       }
@@ -291,7 +320,7 @@ export function layoutText(
 
   // Finalize last line
   if (currentLineChars.length > 0 || lines.length === 0) {
-    finalizeLine(true);
+    finalizeLine(true, false);
   }
 
   // Apply vertical alignment

@@ -55,6 +55,14 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
     activeNode?.applyStyle({ letterSpacing: spacing });
   };
 
+  const handleBulletList = () => {
+    activeNode?.toggleBulletList();
+  };
+
+  const handleNumberedList = () => {
+    activeNode?.toggleNumberedList();
+  };
+
   return (
     <div
       style={{
@@ -310,6 +318,40 @@ const Toolbar: React.FC<ToolbarProps> = ({ activeNode, onAddTextBox }) => {
         <option value="4">Spacing: 4</option>
         <option value="8">Spacing: 8</option>
       </select>
+
+      <div style={{ width: '1px', height: '30px', background: '#555' }} />
+
+      <button
+        onClick={handleBulletList}
+        style={{
+          padding: '6px 12px',
+          background: '#3d3d3d',
+          color: 'white',
+          border: '1px solid #555',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+        disabled={!activeNode}
+        title="Bullet List"
+      >
+        • List
+      </button>
+
+      <button
+        onClick={handleNumberedList}
+        style={{
+          padding: '6px 12px',
+          background: '#3d3d3d',
+          color: 'white',
+          border: '1px solid #555',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+        disabled={!activeNode}
+        title="Numbered List"
+      >
+        1. List
+      </button>
 
       <div style={{ flex: 1 }} />
 

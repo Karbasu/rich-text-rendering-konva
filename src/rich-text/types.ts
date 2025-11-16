@@ -64,6 +64,20 @@ export type TextAlign = 'left' | 'center' | 'right' | 'justify';
 export type VerticalAlign = 'top' | 'middle' | 'bottom';
 
 /**
+ * List type for lines
+ */
+export type ListType = 'none' | 'bullet' | 'number';
+
+/**
+ * List item metadata
+ */
+export interface ListItem {
+  type: ListType;
+  level: number; // 0 = top level, 1 = first indent, etc.
+  index: number; // For numbered lists, the number to display
+}
+
+/**
  * The document model - represents the entire text content
  */
 export interface RichTextDocument {
@@ -71,6 +85,8 @@ export interface RichTextDocument {
   align: TextAlign;
   verticalAlign: VerticalAlign;
   padding: number;
+  // Map from line index (0-based) to list item info
+  listItems: Map<number, ListItem>;
 }
 
 /**
@@ -136,6 +152,8 @@ export interface LayoutLine {
   baseline: number;
   width: number;
   lineIndex: number;
+  listItem?: ListItem; // List metadata for this line
+  listIndent: number; // Indentation in pixels for list
 }
 
 /**
@@ -225,6 +243,7 @@ export function createEmptyDocument(): RichTextDocument {
     align: 'left',
     verticalAlign: 'top',
     padding: 8,
+    listItems: new Map(),
   };
 }
 
@@ -243,5 +262,6 @@ export function createDocument(text: string, style?: Partial<TextStyle>): RichTe
     align: 'left',
     verticalAlign: 'top',
     padding: 8,
+    listItems: new Map(),
   };
 }

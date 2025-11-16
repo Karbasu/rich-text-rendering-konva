@@ -487,11 +487,168 @@ export function replaceSelection(
  * Clone a document (deep copy)
  */
 export function cloneDocument(doc: RichTextDocument): RichTextDocument {
+  // Deep clone listItems Map
+  const clonedListItems = new Map<number, import('./types').ListItem>();
+  if (doc.listItems) {
+    doc.listItems.forEach((value, key) => {
+      clonedListItems.set(key, { ...value });
+    });
+  }
+
   return {
     ...doc,
     spans: doc.spans.map((span) => ({
       ...span,
       style: { ...span.style },
     })),
+    listItems: clonedListItems,
+  };
+}
+
+/**
+ * Get line index for a given absolute position
+ */
+export function getLineIndexForPosition(
+  doc: RichTextDocument,
+  pos: AbsolutePosition
+): number {
+  const chars = flattenDocument(doc);
+  let lineIndex = 0;
+
+  for (let i = 0; i < pos && i < chars.length; i++) {
+    if (chars[i].char === '\n') {
+      lineIndex++;
+    }
+  }
+
+  return lineIndex;
+}
+
+/**
+ * Get the range of lines that contain the selection
+ */
+export function getSelectedLineRange(
+  doc: RichTextDocument,
+  selection: Selection
+): { startLine: number; endLine: number } {
+  const start = Math.min(selection.anchor, selection.focus);
+  const end = Math.max(selection.anchor, selection.focus);
+
+  const startLine = getLineIndexForPosition(doc, start);
+  const endLine = getLineIndexForPosition(doc, end);
+
+  return { startLine, endLine };
+}
+
+/**
+ * Toggle list type for selected lines
+ */
+export function toggleListForLines(
+  doc: RichTextDocument,
+  startLine: number,
+  endLine: number,
+  listType: 'bullet' | 'number'
+): RichTextDocument {
+  const newListItems = new Map(doc.listItems);
+
+  // Check if all lines already have this list type
+  let allHaveType = true;
+  for (let i = startLine; i <= endLine; i++) {
+    const item = newListItems.get(i);
+    if (!item || item.type !== listType) {
+      allHaveType = false;
+      break;
+    }
+  }
+
+  if (allHaveType) {
+    // Remove list formatting
+    for (let i = startLine; i <= endLine; i++) {
+      newListItems.delete(i);
+    }
+  } else {
+    // Apply list formatting
+    let numberIndex = 1;
+
+    // Find the starting number by looking at previous list items
+    if (listType === 'number' && startLine > 0) {
+      const prevItem = newListItems.get(startLine - 1);
+      if (prevItem && prevItem.type === 'number') {
+        numberIndex = prevItem.index + 1;
+      }
+    }
+
+    for (let i = startLine; i <= endLine; i++) {
+      newListItems.set(i, {
+        type: listType,
+        level: 0,
+        index: listType === 'number' ? numberIndex++ : 0,
+      });
+    }
+
+    // Update subsequent numbered list items
+    if (listType === 'number') {
+      let idx = numberIndex;
+      for (let i = endLine + 1; ; i++) {
+        const item = newListItems.get(i);
+        if (!item || item.type !== 'number') break;
+        newListItems.set(i, { ...item, index: idx++ });
+      }
+    }
+  }
+
+  return {
+    ...doc,
+    listItems: newListItems,
+  };
+}
+
+/**
+ * Indent list item (increase level)
+ */
+export function indentListItem(
+  doc: RichTextDocument,
+  lineIndex: number
+): RichTextDocument {
+  const item = doc.listItems.get(lineIndex);
+  if (!item) return doc;
+
+  const newListItems = new Map(doc.listItems);
+  newListItems.set(lineIndex, {
+    ...item,
+    level: Math.min(item.level + 1, 5), // Max 5 levels
+  });
+
+  return {
+    ...doc,
+    listItems: newListItems,
+  };
+}
+
+/**
+ * Outdent list item (decrease level)
+ */
+export function outdentListItem(
+  doc: RichTextDocument,
+  lineIndex: number
+): RichTextDocument {
+  const item = doc.listItems.get(lineIndex);
+  if (!item) return doc;
+
+  const newListItems = new Map(doc.listItems);
+
+  if (item.level === 0) {
+    // Remove list formatting entirely
+    newListItems.delete(lineIndex);
+  } else {
+    newListItems.set(lineIndex, {
+      ...item,
+      level: item.level - 1,
+    });
+  }
+
+  return {
+    ...doc,
+    listItems: newListItems,
   };
 }

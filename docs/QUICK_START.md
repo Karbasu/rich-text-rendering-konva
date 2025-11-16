@@ -73,6 +73,16 @@ textNode.applyStyle({
 });
 ```
 
+### Highlight Text
+
+```typescript
+// Add highlight
+textNode.applyStyle({ backgroundColor: '#FFFF00' }); // Yellow highlight
+
+// Remove highlight
+textNode.applyStyle({ backgroundColor: undefined });
+```
+
 ### Set Text Alignment
 
 ```typescript

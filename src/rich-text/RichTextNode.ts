@@ -38,6 +38,7 @@ import {
 } from './document-model';
 import { layoutText, getCaretPosition, hitTest, hitTestBulletZone } from './layout-engine';
 import { renderTextToCanvas } from './renderer';
+import { parseHTMLToSpans, hasStyledContent } from './html-parser';
 
 interface RichTextNodeConfig extends Konva.GroupConfig {
   width: number;
@@ -1063,7 +1064,7 @@ export class RichTextNode extends Konva.Group {
     let richTextSpans: TextSpan[] | null = null;
 
     if (htmlData) {
-      // Check for our custom rich text data embedded in HTML
+      // First, check for our custom rich text data embedded in HTML
       const match = htmlData.match(/data-rich-text-konva="([^"]+)"/);
       if (match) {
         try {
@@ -1073,7 +1074,19 @@ export class RichTextNode extends Konva.Group {
             richTextSpans = parsed.spans;
           }
         } catch {
-          // Failed to parse rich text, will fall back to plain text
+          // Failed to parse rich text, will try external HTML
+        }
+      }
+
+      // If no custom format found, try to parse external HTML (from Google Docs, Word, Canva, etc.)
+      if (!richTextSpans && hasStyledContent(htmlData)) {
+        try {
+          const parsedSpans = parseHTMLToSpans(htmlData);
+          if (parsedSpans.length > 0) {
+            richTextSpans = parsedSpans;
+          }
+        } catch {
+          // Failed to parse external HTML, will fall back to plain text
         }
       }
     }

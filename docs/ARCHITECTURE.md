@@ -215,7 +215,37 @@ getLineStartPosition(doc, lineIndex) → absolutePos
 isLineEmpty(doc, lineIndex) → boolean
 ```
 
-### 3. Layout Engine (`layout-engine.ts`)
+### 3. HTML Parser (`html-parser.ts`)
+
+Converts external HTML (from Google Docs, Word, Canva) to TextSpan format:
+
+```typescript
+// Main parser function
+parseHTMLToSpans(html: string) → TextSpan[]
+
+// Utility to check for styled content
+hasStyledContent(html: string) → boolean
+
+// Supported HTML Tags:
+// <b>, <strong>     → fontWeight: 'bold'
+// <i>, <em>         → fontStyle: 'italic'
+// <u>               → underline: true
+// <s>, <strike>     → strikethrough: true
+// <mark>            → backgroundColor: '#FFFF00'
+
+// Supported CSS Properties:
+// font-weight       → fontWeight
+// font-style        → fontStyle
+// font-size         → fontSize (pt → px conversion)
+// font-family       → fontFamily
+// color             → color
+// background-color  → backgroundColor
+// text-decoration   → underline/strikethrough
+// letter-spacing    → letterSpacing
+// line-height       → lineHeight
+```
+
+### 4. Layout Engine (`layout-engine.ts`)
 
 Computes character positions for rendering:
 
@@ -251,7 +281,7 @@ Input: RichTextDocument + Container Size
 Output: LayoutResult { lines[], chars[], width, height }
 ```
 
-### 4. Renderer (`renderer.ts`)
+### 5. Renderer (`renderer.ts`)
 
 Draws to offscreen canvas:
 
@@ -267,7 +297,7 @@ Draws to offscreen canvas:
 └────────────────────────────────────┘
 ```
 
-### 5. RichTextNode (`RichTextNode.ts`)
+### 6. RichTextNode (`RichTextNode.ts`)
 
 Main Konva component orchestrating everything:
 

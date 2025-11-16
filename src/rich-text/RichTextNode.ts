@@ -48,6 +48,7 @@ export class RichTextNode extends Konva.Group {
   private _layout: LayoutResult | null = null;
   private _textImage: Konva.Image | null = null;
   private _borderRect: Konva.Rect | null = null;
+  private _hitArea: Konva.Rect | null = null;
   private _placeholder: string;
   private _editable: boolean;
   private _history: HistoryEntry[] = [];
@@ -102,6 +103,17 @@ export class RichTextNode extends Konva.Group {
    * Initialize visual Konva nodes
    */
   private _initializeVisuals(): void {
+    // Hit area for receiving events (invisible but clickable)
+    this._hitArea = new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: this._boxWidth,
+      height: this._boxHeight,
+      fill: 'transparent',
+      listening: true,
+    });
+    this.add(this._hitArea);
+
     // Border/selection rectangle
     this._borderRect = new Konva.Rect({
       x: 0,
@@ -644,7 +656,7 @@ export class RichTextNode extends Konva.Group {
    * Render everything to canvas
    */
   private _render(): void {
-    if (!this._layout || !this._textImage || !this._borderRect) return;
+    if (!this._layout || !this._textImage || !this._borderRect || !this._hitArea) return;
 
     // Get caret position
     const caretPos = this._isEditing
@@ -664,6 +676,10 @@ export class RichTextNode extends Konva.Group {
     this._textImage.image(textCanvas);
     this._textImage.width(this._boxWidth);
     this._textImage.height(this._boxHeight);
+
+    // Update hit area
+    this._hitArea.width(this._boxWidth);
+    this._hitArea.height(this._boxHeight);
 
     // Update border
     this._borderRect.width(this._boxWidth);
@@ -945,7 +961,7 @@ export class RichTextNode extends Konva.Group {
     this._selection = { anchor: 0, focus: 0 };
 
     // Guard against being called from Konva's super() before initialization
-    if (this._textImage) {
+    if (this._hitArea) {
       this._updateLayout();
       this._render();
       this._pushHistory();

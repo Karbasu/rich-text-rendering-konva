@@ -33,7 +33,8 @@ const mockContext = {
 };
 
 // Mock HTMLCanvasElement
-HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext as unknown as CanvasRenderingContext2D);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+HTMLCanvasElement.prototype.getContext = vi.fn(() => mockContext as any);
 
 // Mock window properties
 Object.defineProperty(window, 'devicePixelRatio', {

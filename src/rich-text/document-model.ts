@@ -49,6 +49,11 @@ export function absoluteToSpanPosition(
   doc: RichTextDocument,
   absolutePos: AbsolutePosition
 ): { spanIndex: number; charOffset: number } {
+  // Handle empty document
+  if (doc.spans.length === 0) {
+    return { spanIndex: 0, charOffset: 0 };
+  }
+
   let remaining = absolutePos;
 
   for (let i = 0; i < doc.spans.length; i++) {
@@ -116,6 +121,21 @@ export function insertText(
   style?: Partial<TextStyle>
 ): RichTextDocument {
   if (text.length === 0) return doc;
+
+  // Handle empty spans array
+  if (doc.spans.length === 0) {
+    const newStyle = style ? { ...DEFAULT_STYLE, ...style } : { ...DEFAULT_STYLE };
+    return {
+      ...doc,
+      spans: [
+        {
+          id: generateSpanId(),
+          text,
+          style: newStyle,
+        },
+      ],
+    };
+  }
 
   const { spanIndex, charOffset } = absoluteToSpanPosition(doc, pos);
   const newSpans = [...doc.spans];

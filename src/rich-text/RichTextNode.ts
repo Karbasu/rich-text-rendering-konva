@@ -7,6 +7,7 @@ import {
   RichTextDocument,
   Selection,
   TextStyle,
+  TextSpan,
   LayoutResult,
   HistoryEntry,
   createEmptyDocument,
@@ -18,6 +19,8 @@ import {
   deleteRange,
   replaceSelection,
   getSelectedText,
+  extractStyledSpans,
+  insertStyledSpans,
   applyStyleToRange,
   toggleBoldInRange,
   toggleItalicInRange,
@@ -72,6 +75,7 @@ export class RichTextNode extends Konva.Group {
   // Event handlers bound to this instance
   private _boundKeyDownHandler: (e: KeyboardEvent) => void;
   private _boundKeyPressHandler: (e: KeyboardEvent) => void;
+  private _boundPasteHandler: (e: ClipboardEvent) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _boundMouseMoveHandler: (e: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +94,7 @@ export class RichTextNode extends Konva.Group {
     // Bind event handlers
     this._boundKeyDownHandler = this._handleKeyDown.bind(this);
     this._boundKeyPressHandler = this._handleKeyPress.bind(this);
+    this._boundPasteHandler = this._handlePaste.bind(this);
     this._boundMouseMoveHandler = this._handleMouseMove.bind(this);
     this._boundMouseUpHandler = this._handleMouseUp.bind(this);
 
@@ -845,13 +850,58 @@ export class RichTextNode extends Konva.Group {
   }
 
   /**
-   * Copy selected text to clipboard
+   * Copy selected text to clipboard with rich text support
    */
   private _copySelection(): void {
-    const text = getSelectedText(this._document, this._selection);
-    if (text) {
-      navigator.clipboard.writeText(text).catch(console.error);
+    if (this._selection.anchor === this._selection.focus) return;
+
+    const plainText = getSelectedText(this._document, this._selection);
+    const styledSpans = extractStyledSpans(this._document, this._selection);
+
+    if (plainText) {
+      // Create rich text JSON for internal use
+      const richTextData = JSON.stringify({
+        type: 'rich-text-konva',
+        version: 1,
+        spans: styledSpans,
+      });
+
+      // Try to write both plain text and rich text to clipboard
+      if (navigator.clipboard && navigator.clipboard.write) {
+        const textBlob = new Blob([plainText], { type: 'text/plain' });
+
+        navigator.clipboard
+          .write([
+            new ClipboardItem({
+              'text/plain': textBlob,
+              'text/html': new Blob(
+                [`<div data-rich-text-konva="${encodeURIComponent(richTextData)}">${this._escapeHTML(plainText)}</div>`],
+                { type: 'text/html' }
+              ),
+            }),
+          ])
+          .catch(() => {
+            // Fallback to plain text
+            navigator.clipboard.writeText(plainText).catch(console.error);
+          });
+      } else {
+        // Fallback to plain text only
+        navigator.clipboard.writeText(plainText).catch(console.error);
+      }
     }
+  }
+
+  /**
+   * Escape HTML for safe embedding
+   */
+  private _escapeHTML(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br>');
   }
 
   /**
@@ -966,7 +1016,7 @@ export class RichTextNode extends Konva.Group {
     window.addEventListener('keypress', this._boundKeyPressHandler);
 
     // Setup paste handler
-    window.addEventListener('paste', this._handlePaste.bind(this));
+    window.addEventListener('paste', this._boundPasteHandler);
 
     // Start caret blink
     this._startCaretBlink();
@@ -990,7 +1040,7 @@ export class RichTextNode extends Konva.Group {
     // Remove keyboard listeners
     window.removeEventListener('keydown', this._boundKeyDownHandler);
     window.removeEventListener('keypress', this._boundKeyPressHandler);
-    window.removeEventListener('paste', this._handlePaste.bind(this));
+    window.removeEventListener('paste', this._boundPasteHandler);
 
     // Stop caret blink
     this._stopCaretBlink();
@@ -1001,17 +1051,76 @@ export class RichTextNode extends Konva.Group {
   }
 
   /**
-   * Handle paste event
+   * Handle paste event with rich text support
    */
   private _handlePaste(e: ClipboardEvent): void {
     if (!this._isEditing) return;
 
     e.preventDefault();
 
-    const text = e.clipboardData?.getData('text/plain') || '';
-    if (text) {
-      this._insertText(text);
+    // Try to extract rich text data from HTML
+    const htmlData = e.clipboardData?.getData('text/html') || '';
+    let richTextSpans: TextSpan[] | null = null;
+
+    if (htmlData) {
+      // Check for our custom rich text data embedded in HTML
+      const match = htmlData.match(/data-rich-text-konva="([^"]+)"/);
+      if (match) {
+        try {
+          const decoded = decodeURIComponent(match[1]);
+          const parsed = JSON.parse(decoded);
+          if (parsed.type === 'rich-text-konva' && parsed.spans) {
+            richTextSpans = parsed.spans;
+          }
+        } catch {
+          // Failed to parse rich text, will fall back to plain text
+        }
+      }
     }
+
+    if (richTextSpans && richTextSpans.length > 0) {
+      // Rich text paste - preserve styles
+      this._insertStyledSpans(richTextSpans);
+    } else {
+      // Plain text paste
+      const text = e.clipboardData?.getData('text/plain') || '';
+      if (text) {
+        this._insertText(text);
+      }
+    }
+  }
+
+  /**
+   * Insert styled spans at current position (for rich paste)
+   */
+  private _insertStyledSpans(spans: TextSpan[]): void {
+    // Delete selected text first (if any)
+    let insertPosition = this._selection.focus;
+
+    if (this._selection.anchor !== this._selection.focus) {
+      const { doc, newPosition } = replaceSelection(
+        this._document,
+        this._selection,
+        ''
+      );
+      this._document = doc;
+      insertPosition = newPosition;
+    }
+
+    // Insert the styled spans
+    const { doc, newPosition } = insertStyledSpans(
+      this._document,
+      insertPosition,
+      spans
+    );
+
+    this._document = doc;
+    this._selection = { anchor: newPosition, focus: newPosition };
+
+    this._updateLayout();
+    this._render();
+    this._pushHistory();
+    this._resetCaretBlink();
   }
 
   /**

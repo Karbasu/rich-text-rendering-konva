@@ -692,38 +692,70 @@ function isWordChar(char):
 
 ## Copy/Paste Handling
 
-### Copy
+### Rich Text Copy (Style Preservation)
 
 ```pseudo
 function handleCopy():
   if not hasSelection():
     return
 
-  { start, end } = getSelectionRange()
-  text = getDocumentText(this._document)
-  selectedText = text.substring(start, end)
+  // Extract both plain text and styled spans
+  plainText = getSelectedText(this._document, this._selection)
+  styledSpans = extractStyledSpans(this._document, this._selection)
 
-  // Use Clipboard API
-  navigator.clipboard.writeText(selectedText)
+  // Create rich text JSON
+  richTextData = JSON.stringify({
+    type: 'rich-text-konva',
+    version: 1,
+    spans: styledSpans
+  })
 
-  // Or fallback to execCommand
-  // textArea = document.createElement('textarea')
-  // textArea.value = selectedText
-  // document.body.appendChild(textArea)
-  // textArea.select()
-  // document.execCommand('copy')
-  // document.body.removeChild(textArea)
+  // Write to clipboard with both plain and rich formats
+  if navigator.clipboard.write:
+    navigator.clipboard.write([
+      new ClipboardItem({
+        'text/plain': new Blob([plainText]),
+        'text/html': new Blob([
+          '<div data-rich-text-konva="' + encodeURIComponent(richTextData) + '">' +
+          escapeHTML(plainText) + '</div>'
+        ])
+      })
+    ])
+  else:
+    // Fallback to plain text only
+    navigator.clipboard.writeText(plainText)
 ```
 
-### Paste
+**Key insight**: Embed rich text data as a custom HTML attribute. This allows:
+- Plain text fallback for external apps
+- Full style preservation for internal paste
+- Works across browser restrictions
+
+### Rich Text Paste
 
 ```pseudo
-function handlePaste():
-  navigator.clipboard.readText().then((text) => {
-    if hasSelection():
-      this.deleteSelection()
+function handlePaste(event):
+  event.preventDefault()
 
-    // Insert pasted text with current style
+  // Try to extract rich text from HTML
+  htmlData = event.clipboardData.getData('text/html')
+  richTextSpans = null
+
+  if htmlData:
+    match = htmlData.match(/data-rich-text-konva="([^"]+)"/)
+    if match:
+      try:
+        decoded = decodeURIComponent(match[1])
+        parsed = JSON.parse(decoded)
+        if parsed.type == 'rich-text-konva':
+          richTextSpans = parsed.spans
+
+  if richTextSpans:
+    // Rich text paste - preserve styles
+    insertStyledSpans(richTextSpans)
+  else:
+    // Plain text paste
+    text = event.clipboardData.getData('text/plain')
     this._document = insertText(
       this._document,
       this._selection.focus,
@@ -737,50 +769,65 @@ function handlePaste():
 
     this.relayout()
     this.render()
-  })
 ```
 
-### Rich Text Paste (Advanced)
+### Insert Styled Spans Helper
 
 ```pseudo
-// Store rich text in clipboard
-function handleRichCopy():
-  if not hasSelection():
-    return
+function insertStyledSpans(spans):
+  // Delete selected text first (if any)
+  insertPosition = this._selection.focus
 
-  { start, end } = getSelectionRange()
+  if hasSelection():
+    { doc, newPosition } = replaceSelection(this._document, this._selection, '')
+    this._document = doc
+    insertPosition = newPosition
 
-  // Extract styled segments
-  segments = extractStyledSegments(this._document, start, end)
+  // Insert the styled spans, preserving their styles
+  { doc, newPosition } = insertStyledSpansAtPosition(
+    this._document,
+    insertPosition,
+    spans
+  )
 
-  // Plain text for fallback
-  plainText = getDocumentText(this._document).substring(start, end)
+  this._document = doc
+  this._selection = { anchor: newPosition, focus: newPosition }
 
-  // Custom MIME type for rich data
-  richData = JSON.stringify(segments)
+  this.relayout()
+  this.render()
+  this.pushHistory()
+```
 
-  navigator.clipboard.write([
-    new ClipboardItem({
-      'text/plain': new Blob([plainText], { type: 'text/plain' }),
-      'application/x-rich-text': new Blob([richData], { type: 'application/json' })
-    })
-  ])
+### Extract Styled Spans (for Copy)
 
-function handleRichPaste():
-  navigator.clipboard.read().then((items) => {
-    for each item in items:
-      if item.types.includes('application/x-rich-text'):
-        // Paste with formatting
-        blob = item.getType('application/x-rich-text')
-        blob.text().then((json) => {
-          segments = JSON.parse(json)
-          this.insertStyledSegments(segments)
-        })
-        return
+```pseudo
+function extractStyledSpans(doc, selection):
+  start = min(selection.anchor, selection.focus)
+  end = max(selection.anchor, selection.focus)
 
-    // Fallback to plain text
-    this.handlePaste()
-  })
+  chars = flattenDocument(doc)
+  selectedChars = chars.slice(start, end)
+
+  // Group consecutive chars with same style into spans
+  result = []
+  currentSpan = null
+
+  for each char in selectedChars:
+    if not currentSpan or not stylesEqual(currentSpan.style, char.style):
+      if currentSpan:
+        result.push(currentSpan)
+      currentSpan = {
+        id: generateId(),
+        text: char.char,
+        style: cloneStyle(char.style)
+      }
+    else:
+      currentSpan.text += char.char
+
+  if currentSpan:
+    result.push(currentSpan)
+
+  return result
 ```
 
 ## Edge Cases

@@ -193,6 +193,10 @@ insertText(doc, position, text, style?) → newDoc
 deleteRange(doc, start, end) → newDoc
 replaceSelection(doc, selection, text, style?) → { doc, newPosition }
 
+// Rich Copy/Paste Operations
+extractStyledSpans(doc, selection) → TextSpan[]
+insertStyledSpans(doc, position, spans) → { doc, newPosition }
+
 // Style Operations
 applyStyleToRange(doc, start, end, style) → newDoc
 toggleBoldInRange(doc, start, end) → newDoc

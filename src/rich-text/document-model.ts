@@ -652,3 +652,130 @@ export function outdentListItem(
     listItems: newListItems,
   };
 }
+
+/**
+ * Remove list item and shift subsequent items up
+ */
+export function removeListItemAtLine(
+  doc: RichTextDocument,
+  lineIndex: number
+): RichTextDocument {
+  const newListItems = new Map<number, import('./types').ListItem>();
+
+  // Shift all items, removing the one at lineIndex
+  doc.listItems.forEach((item, idx) => {
+    if (idx < lineIndex) {
+      newListItems.set(idx, item);
+    } else if (idx > lineIndex) {
+      newListItems.set(idx - 1, item);
+    }
+    // Skip idx === lineIndex (remove it)
+  });
+
+  return {
+    ...doc,
+    listItems: newListItems,
+  };
+}
+
+/**
+ * Renumber all ordered lists to ensure consecutive numbering
+ */
+export function renumberLists(doc: RichTextDocument): RichTextDocument {
+  const newListItems = new Map(doc.listItems);
+
+  // Group consecutive numbered list items by level
+  const sortedLines = Array.from(newListItems.keys()).sort((a, b) => a - b);
+
+  // Track current number for each level
+  const levelCounters = new Map<number, number>();
+
+  for (const lineIdx of sortedLines) {
+    const item = newListItems.get(lineIdx);
+    if (!item || item.type !== 'number') {
+      // Reset counters when we hit non-numbered items
+      levelCounters.clear();
+      continue;
+    }
+
+    // Get or initialize counter for this level
+    const currentCount = levelCounters.get(item.level) || 0;
+    const newCount = currentCount + 1;
+    levelCounters.set(item.level, newCount);
+
+    // Reset deeper level counters
+    for (const [level] of levelCounters) {
+      if (level > item.level) {
+        levelCounters.delete(level);
+      }
+    }
+
+    // Update the item with correct number
+    if (item.index !== newCount) {
+      newListItems.set(lineIdx, {
+        ...item,
+        index: newCount,
+      });
+    }
+  }
+
+  return {
+    ...doc,
+    listItems: newListItems,
+  };
+}
+
+/**
+ * Check if a line is empty (only contains whitespace or nothing)
+ */
+export function isLineEmpty(doc: RichTextDocument, lineIndex: number): boolean {
+  const chars = flattenDocument(doc);
+  let currentLine = 0;
+  let lineStart = 0;
+  let lineEnd = 0;
+
+  for (let i = 0; i <= chars.length; i++) {
+    if (i === chars.length || chars[i].char === '\n') {
+      if (currentLine === lineIndex) {
+        lineEnd = i;
+        break;
+      }
+      currentLine++;
+      lineStart = i + 1;
+    }
+  }
+
+  // Check if line has any non-whitespace content
+  for (let i = lineStart; i < lineEnd; i++) {
+    const char = chars[i].char;
+    if (char !== ' ' && char !== '\t') {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Get start position of a line
+ */
+export function getLineStartPosition(
+  doc: RichTextDocument,
+  lineIndex: number
+): AbsolutePosition {
+  const chars = flattenDocument(doc);
+  let currentLine = 0;
+  let position = 0;
+
+  for (let i = 0; i < chars.length; i++) {
+    if (currentLine === lineIndex) {
+      return position;
+    }
+    if (chars[i].char === '\n') {
+      currentLine++;
+    }
+    position++;
+  }
+
+  return position;
+}

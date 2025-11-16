@@ -28,6 +28,10 @@ import {
   toggleListForLines,
   indentListItem,
   outdentListItem,
+  removeListItemAtLine,
+  renumberLists,
+  isLineEmpty,
+  getLineStartPosition,
 } from './document-model';
 import { layoutText, getCaretPosition, hitTest } from './layout-engine';
 import { renderTextToCanvas } from './renderer';
@@ -393,6 +397,10 @@ export class RichTextNode extends Konva.Group {
    * Handle backspace key
    */
   private _handleBackspace(): void {
+    const currentLineIndex = getLineIndexForPosition(this._document, this._selection.focus);
+    const currentListItem = this._document.listItems.get(currentLineIndex);
+    const lineStart = getLineStartPosition(this._document, currentLineIndex);
+
     if (this._selection.anchor !== this._selection.focus) {
       // Delete selection
       const { doc, newPosition } = replaceSelection(
@@ -402,13 +410,38 @@ export class RichTextNode extends Konva.Group {
       );
       this._document = doc;
       this._selection = { anchor: newPosition, focus: newPosition };
+      // Renumber lists after deletion
+      this._document = renumberLists(this._document);
+    } else if (currentListItem && this._selection.focus === lineStart) {
+      // At start of a list item - remove the list formatting instead of deleting character
+      const newListItems = new Map(this._document.listItems);
+      newListItems.delete(currentLineIndex);
+      this._document = { ...this._document, listItems: newListItems };
+      this._document = renumberLists(this._document);
     } else if (this._selection.focus > 0) {
-      // Delete character before cursor
-      this._document = deleteRange(
-        this._document,
-        this._selection.focus - 1,
-        this._selection.focus
-      );
+      // Check if we're deleting a newline that would merge lines
+      const chars = this._document.spans.map(s => s.text).join('');
+      const charToDelete = chars[this._selection.focus - 1];
+
+      if (charToDelete === '\n') {
+        // Deleting a newline - need to adjust list items
+        this._document = deleteRange(
+          this._document,
+          this._selection.focus - 1,
+          this._selection.focus
+        );
+        // Remove list item for the line being merged and shift subsequent items
+        this._document = removeListItemAtLine(this._document, currentLineIndex);
+        this._document = renumberLists(this._document);
+      } else {
+        // Regular character deletion
+        this._document = deleteRange(
+          this._document,
+          this._selection.focus - 1,
+          this._selection.focus
+        );
+      }
+
       this._selection = {
         anchor: this._selection.focus - 1,
         focus: this._selection.focus - 1,
@@ -436,13 +469,32 @@ export class RichTextNode extends Konva.Group {
       );
       this._document = doc;
       this._selection = { anchor: newPosition, focus: newPosition };
+      // Renumber lists after deletion
+      this._document = renumberLists(this._document);
     } else if (this._selection.focus < docLength) {
-      // Delete character after cursor
-      this._document = deleteRange(
-        this._document,
-        this._selection.focus,
-        this._selection.focus + 1
-      );
+      // Check if we're deleting a newline
+      const chars = this._document.spans.map(s => s.text).join('');
+      const charToDelete = chars[this._selection.focus];
+
+      if (charToDelete === '\n') {
+        // Deleting a newline - need to adjust list items
+        const nextLineIndex = getLineIndexForPosition(this._document, this._selection.focus + 1);
+        this._document = deleteRange(
+          this._document,
+          this._selection.focus,
+          this._selection.focus + 1
+        );
+        // Remove list item for the next line being merged
+        this._document = removeListItemAtLine(this._document, nextLineIndex);
+        this._document = renumberLists(this._document);
+      } else {
+        // Regular character deletion
+        this._document = deleteRange(
+          this._document,
+          this._selection.focus,
+          this._selection.focus + 1
+        );
+      }
     }
 
     this._updateLayout();
@@ -457,6 +509,19 @@ export class RichTextNode extends Konva.Group {
   private _handleEnter(): void {
     const currentLineIndex = getLineIndexForPosition(this._document, this._selection.focus);
     const currentListItem = this._document.listItems.get(currentLineIndex);
+
+    // If current line is an empty list item, exit the list instead of creating new item
+    if (currentListItem && isLineEmpty(this._document, currentLineIndex)) {
+      // Remove the list formatting from current line
+      const newListItems = new Map(this._document.listItems);
+      newListItems.delete(currentLineIndex);
+      this._document = { ...this._document, listItems: newListItems };
+      this._updateLayout();
+      this._render();
+      this._pushHistory();
+      this._resetCaretBlink();
+      return;
+    }
 
     // Insert newline first
     const { doc, newPosition } = replaceSelection(
@@ -500,6 +565,8 @@ export class RichTextNode extends Konva.Group {
       }
 
       this._document = { ...this._document, listItems: newListItems };
+      // Renumber to ensure consistency
+      this._document = renumberLists(this._document);
     }
 
     this._updateLayout();

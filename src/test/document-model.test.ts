@@ -79,6 +79,7 @@ describe('Document Model', () => {
         align: 'left',
         verticalAlign: 'top',
         padding: 8,
+        listItems: new Map(),
       };
       const chars = flattenDocument(doc);
       expect(chars).toHaveLength(0);
@@ -102,6 +103,7 @@ describe('Document Model', () => {
         align: 'left',
         verticalAlign: 'top',
         padding: 8,
+        listItems: new Map(),
       };
       expect(getDocumentLength(doc)).toBe(0);
     });
@@ -330,6 +332,7 @@ describe('Document Model', () => {
         align: 'left',
         verticalAlign: 'top',
         padding: 8,
+        listItems: new Map(),
       };
       const style = getStyleAtPosition(doc, 0);
       expect(style).toBeDefined();

@@ -50,6 +50,9 @@ export function renderTextToCanvas(
     }
   }
 
+  // Render list markers
+  renderListMarkers(ctx, layout);
+
   // Render text
   renderChars(ctx, layout.chars);
 
@@ -60,6 +63,60 @@ export function renderTextToCanvas(
   }
 
   return canvas;
+}
+
+/**
+ * Render list bullets and numbers
+ */
+function renderListMarkers(ctx: CanvasRenderingContext2D, layout: LayoutResult): void {
+  // Track which source lines we've already rendered markers for
+  const renderedSourceLines = new Set<number>();
+
+  for (const line of layout.lines) {
+    if (!line.listItem) continue;
+
+    // Only render marker for the first visual line of each source line
+    if (renderedSourceLines.has(line.lineIndex)) continue;
+
+    // Check if this is the first line for this list item (has the indent)
+    if (line.listIndent === 0) continue;
+
+    // Get representative style from line (use first char's style or default)
+    const style = line.chars[0]?.char.style || {
+      fontFamily: 'Arial',
+      fontSize: 16,
+      fontWeight: 'normal' as const,
+      fontStyle: 'normal' as const,
+      color: '#000000',
+      underline: false,
+      strikethrough: false,
+      letterSpacing: 0,
+      lineHeight: 1.4,
+    };
+
+    ctx.font = buildFontString(style);
+    ctx.fillStyle = style.color;
+    ctx.textBaseline = 'alphabetic';
+
+    const markerX = line.listIndent - 16 + 8; // Position marker before text
+    const textY = line.y + line.baseline;
+
+    if (line.listItem.type === 'bullet') {
+      // Draw bullet point
+      const bulletSize = style.fontSize * 0.3;
+      const bulletY = textY - style.fontSize * 0.35;
+      ctx.beginPath();
+      ctx.arc(markerX, bulletY, bulletSize, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (line.listItem.type === 'number') {
+      // Draw number
+      const numberText = `${line.listItem.index}.`;
+      const numberWidth = ctx.measureText(numberText).width;
+      ctx.fillText(numberText, markerX - numberWidth / 2, textY);
+    }
+
+    renderedSourceLines.add(line.lineIndex);
+  }
 }
 
 /**

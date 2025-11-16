@@ -24,6 +24,10 @@ import {
   toggleStyleInRange,
   getStyleAtPosition,
   cloneDocument,
+  getLineIndexForPosition,
+  toggleListForLines,
+  indentListItem,
+  outdentListItem,
 } from './document-model';
 import { layoutText, getCaretPosition, hitTest } from './layout-engine';
 import { renderTextToCanvas } from './renderer';
@@ -323,7 +327,9 @@ export class RichTextNode extends Konva.Group {
     } else if (key === 'Delete') {
       this._handleDelete();
     } else if (key === 'Enter') {
-      this._insertText('\n');
+      this._handleEnter();
+    } else if (key === 'Tab') {
+      this._handleTab(shift);
     } else if (key === 'ArrowLeft') {
       this._moveCaret('left', shift);
     } else if (key === 'ArrowRight') {
@@ -443,6 +449,86 @@ export class RichTextNode extends Konva.Group {
     this._render();
     this._pushHistory();
     this._resetCaretBlink();
+  }
+
+  /**
+   * Handle Enter key - create new line and continue list if applicable
+   */
+  private _handleEnter(): void {
+    const currentLineIndex = getLineIndexForPosition(this._document, this._selection.focus);
+    const currentListItem = this._document.listItems.get(currentLineIndex);
+
+    // Insert newline first
+    const { doc, newPosition } = replaceSelection(
+      this._document,
+      this._selection,
+      '\n',
+      this._currentStyle
+    );
+
+    this._document = doc;
+    this._selection = { anchor: newPosition, focus: newPosition };
+
+    // If current line is a list item, continue the list on the new line
+    if (currentListItem) {
+      const newLineIndex = currentLineIndex + 1;
+      const newListItems = new Map(this._document.listItems);
+
+      // Shift all existing list items after this point down by 1
+      const entries = Array.from(this._document.listItems.entries()).sort((a, b) => b[0] - a[0]);
+      for (const [lineIdx, item] of entries) {
+        if (lineIdx > currentLineIndex) {
+          newListItems.delete(lineIdx);
+          newListItems.set(lineIdx + 1, item);
+        }
+      }
+
+      // Add new list item with same type and level
+      if (currentListItem.type === 'bullet') {
+        newListItems.set(newLineIndex, {
+          type: 'bullet',
+          level: currentListItem.level,
+          index: 0,
+        });
+      } else if (currentListItem.type === 'number') {
+        // For numbered lists, increment the index
+        newListItems.set(newLineIndex, {
+          type: 'number',
+          level: currentListItem.level,
+          index: currentListItem.index + 1,
+        });
+      }
+
+      this._document = { ...this._document, listItems: newListItems };
+    }
+
+    this._updateLayout();
+    this._render();
+    this._pushHistory();
+    this._resetCaretBlink();
+  }
+
+  /**
+   * Handle Tab key - indent/outdent list items
+   */
+  private _handleTab(shift: boolean): void {
+    const currentLineIndex = getLineIndexForPosition(this._document, this._selection.focus);
+    const currentListItem = this._document.listItems.get(currentLineIndex);
+
+    if (currentListItem) {
+      // Indent or outdent the list item
+      if (shift) {
+        this._document = outdentListItem(this._document, currentLineIndex);
+      } else {
+        this._document = indentListItem(this._document, currentLineIndex);
+      }
+      this._updateLayout();
+      this._render();
+      this._pushHistory();
+    } else {
+      // Not in a list item, insert tab character
+      this._insertText('\t');
+    }
   }
 
   /**
@@ -974,6 +1060,30 @@ export class RichTextNode extends Konva.Group {
    */
   public setAlign(align: 'left' | 'center' | 'right' | 'justify'): void {
     this._document = { ...this._document, align };
+    this._updateLayout();
+    this._render();
+    this._pushHistory();
+  }
+
+  /**
+   * Toggle bullet list for current line(s)
+   */
+  public toggleBulletList(): void {
+    const startLine = getLineIndexForPosition(this._document, Math.min(this._selection.anchor, this._selection.focus));
+    const endLine = getLineIndexForPosition(this._document, Math.max(this._selection.anchor, this._selection.focus));
+    this._document = toggleListForLines(this._document, startLine, endLine, 'bullet');
+    this._updateLayout();
+    this._render();
+    this._pushHistory();
+  }
+
+  /**
+   * Toggle numbered list for current line(s)
+   */
+  public toggleNumberedList(): void {
+    const startLine = getLineIndexForPosition(this._document, Math.min(this._selection.anchor, this._selection.focus));
+    const endLine = getLineIndexForPosition(this._document, Math.max(this._selection.anchor, this._selection.focus));
+    this._document = toggleListForLines(this._document, startLine, endLine, 'number');
     this._updateLayout();
     this._render();
     this._pushHistory();

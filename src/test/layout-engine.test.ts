@@ -178,6 +178,7 @@ describe('Layout Engine', () => {
         align: 'left',
         verticalAlign: 'top',
         padding: 8,
+        listItems: new Map(),
       };
       const layout = layoutText(doc, 400, 300);
       expect(layout.lines).toBeDefined();

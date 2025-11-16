@@ -286,13 +286,17 @@ export function layoutText(
   };
 
   // Process tokens and break into lines
+  let endsWithNewline = false;
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
 
     if (token.type === 'newline') {
       finalizeLine(false, true);
+      endsWithNewline = (i === tokens.length - 1);
       continue;
     }
+
+    endsWithNewline = false;
 
     // Get current list indent for this source line
     const listItem = doc.listItems?.get(sourceLineIndex);
@@ -320,6 +324,11 @@ export function layoutText(
 
   // Finalize last line
   if (currentLineChars.length > 0 || lines.length === 0) {
+    finalizeLine(true, false);
+  }
+
+  // If document ends with newline, create an empty line for the cursor
+  if (endsWithNewline) {
     finalizeLine(true, false);
   }
 
@@ -463,6 +472,39 @@ export function getCaretPosition(
   for (let i = 0; i < layout.chars.length; i++) {
     if (layout.chars[i].char.absoluteIndex === absoluteIndex - 1) {
       const char = layout.chars[i];
+
+      // Special case: if the character before caret is a newline,
+      // position caret at start of NEXT line, not end of current line
+      if (char.char.char === '\n') {
+        // Find the next line
+        const currentLineIndex = char.lineIndex;
+        for (const line of layout.lines) {
+          if (line.lineIndex === currentLineIndex + 1) {
+            // Get the list indent for this line
+            const listIndent = line.listIndent || 0;
+            return {
+              x: padding + listIndent,
+              y: line.y,
+              height: line.height,
+            };
+          }
+        }
+        // If no next line found, we're at the end - create a new line position
+        const currentLine = layout.lines.find(l => l.lineIndex === currentLineIndex);
+        if (currentLine) {
+          const nextLineY = currentLine.y + currentLine.height;
+          // Check if next line would have list formatting
+          const nextLineIndex = currentLineIndex + 1;
+          const nextListItem = doc.listItems.get(nextLineIndex);
+          const nextListIndent = nextListItem ? getListIndentForItem(nextListItem) : 0;
+          return {
+            x: padding + nextListIndent,
+            y: nextLineY,
+            height: currentLine.height,
+          };
+        }
+      }
+
       return {
         x: char.x + char.width,
         y: char.y,
@@ -473,11 +515,37 @@ export function getCaretPosition(
 
   // Caret is at the end
   const lastChar = layout.chars[layout.chars.length - 1];
+
+  // Special case: if last character is a newline, position on next line
+  if (lastChar.char.char === '\n') {
+    const currentLine = layout.lines.find(l => l.lineIndex === lastChar.lineIndex);
+    if (currentLine) {
+      const nextLineY = currentLine.y + currentLine.height;
+      const nextLineIndex = lastChar.lineIndex + 1;
+      const nextListItem = doc.listItems.get(nextLineIndex);
+      const nextListIndent = nextListItem ? getListIndentForItem(nextListItem) : 0;
+      return {
+        x: padding + nextListIndent,
+        y: nextLineY,
+        height: currentLine.height,
+      };
+    }
+  }
+
   return {
     x: lastChar.x + lastChar.width,
     y: lastChar.y,
     height: lastChar.height,
   };
+}
+
+/**
+ * Helper to get list indent for a list item
+ */
+function getListIndentForItem(listItem: import('./types').ListItem): number {
+  const baseIndent = 24;
+  const levelIndent = 20;
+  return baseIndent + listItem.level * levelIndent;
 }
 
 /**

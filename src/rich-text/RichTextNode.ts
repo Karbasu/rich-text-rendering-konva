@@ -314,6 +314,9 @@ export class RichTextNode extends Konva.Group {
     const newWidth = Math.max(this._minWidth, this._boxWidth * scaleX);
     const newHeight = Math.max(this._minHeight, this._boxHeight * scaleY);
 
+    // Check if this is a diagonal scale (both X and Y changed)
+    const isDiagonalScale = Math.abs(scaleX - 1) > 0.001 && Math.abs(scaleY - 1) > 0.001;
+
     // Reset scale and update dimensions
     this.scaleX(1);
     this.scaleY(1);
@@ -321,8 +324,34 @@ export class RichTextNode extends Konva.Group {
     this._boxWidth = newWidth;
     this._boxHeight = newHeight;
 
+    // Scale font sizes proportionally for diagonal scaling
+    if (isDiagonalScale) {
+      // Use geometric mean of scale factors for proportional scaling
+      const scaleFactor = Math.sqrt(scaleX * scaleY);
+      this._scaleFontSizes(scaleFactor);
+    }
+
     this._updateLayout();
     this._render();
+  }
+
+  /**
+   * Scale all font sizes in the document by a factor
+   */
+  private _scaleFontSizes(factor: number): void {
+    // Create new document with scaled font sizes
+    const newSpans = this._document.spans.map(span => ({
+      ...span,
+      style: {
+        ...span.style,
+        fontSize: Math.round(span.style.fontSize * factor * 10) / 10, // Round to 1 decimal
+      },
+    }));
+
+    this._document = {
+      ...this._document,
+      spans: newSpans,
+    };
   }
 
   /**

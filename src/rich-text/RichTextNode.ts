@@ -37,8 +37,8 @@ import {
   getLineStartPosition,
 } from './document-model';
 import { layoutText, getCaretPosition, hitTest, hitTestBulletZone } from './layout-engine';
-import { renderTextToCanvas } from './renderer';
 import { parseHTMLToSpans, hasStyledContent } from './html-parser';
+import { createKonvaTextNodes } from './konva-renderer';
 
 interface RichTextNodeConfig extends Konva.GroupConfig {
   width: number;
@@ -58,7 +58,7 @@ export class RichTextNode extends Konva.Group {
   private _caretVisible: boolean = true;
   private _caretBlinkInterval: number | null = null;
   private _layout: LayoutResult | null = null;
-  private _textImage: Konva.Image | null = null;
+  private _textGroup: Konva.Group | null = null;
   private _borderRect: Konva.Rect | null = null;
   private _hitArea: Konva.Rect | null = null;
   private _placeholder: string;
@@ -140,16 +140,11 @@ export class RichTextNode extends Konva.Group {
     });
     this.add(this._borderRect);
 
-    // Text image (rendered from offscreen canvas)
-    this._textImage = new Konva.Image({
-      x: 0,
-      y: 0,
-      width: this._boxWidth,
-      height: this._boxHeight,
+    // Text group (will be populated by _render)
+    this._textGroup = new Konva.Group({
       listening: false,
-      image: undefined,
     });
-    this.add(this._textImage);
+    this.add(this._textGroup);
   }
 
   /**
@@ -949,29 +944,39 @@ export class RichTextNode extends Konva.Group {
   }
 
   /**
-   * Render everything to canvas
+   * Render everything using native Konva nodes
    */
   private _render(): void {
-    if (!this._layout || !this._textImage || !this._borderRect || !this._hitArea) return;
+    if (!this._layout || !this._textGroup || !this._borderRect || !this._hitArea) return;
 
-    // Get caret position
-    const caretPos = this._isEditing
+    // Get caret position and create CaretInfo
+    const caretPosition = this._isEditing
       ? getCaretPosition(this._layout, this._selection.focus, this._document)
       : null;
 
-    // Render text to offscreen canvas
-    const textCanvas = renderTextToCanvas(
+    const caretInfo = caretPosition
+      ? {
+          ...caretPosition,
+          visible: this._caretVisible && this._isEditing,
+        }
+      : null;
+
+    // Clear existing text group content
+    this._textGroup.destroyChildren();
+
+    // Create new Konva nodes for text, selection, and caret
+    const newContent = createKonvaTextNodes(
       this._layout,
       this._document,
       this._isEditing ? this._selection : null,
-      caretPos,
+      caretInfo,
       this._caretVisible && this._isEditing
     );
 
-    // Update Konva image
-    this._textImage.image(textCanvas);
-    this._textImage.width(this._boxWidth);
-    this._textImage.height(this._boxHeight);
+    // Add all children from the new content group
+    for (const child of newContent.getChildren().slice()) {
+      this._textGroup.add(child);
+    }
 
     // Update hit area
     this._hitArea.width(this._boxWidth);

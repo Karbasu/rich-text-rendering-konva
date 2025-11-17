@@ -17,5 +17,8 @@ export * from './renderer';
 // HTML Parser for external paste support
 export * from './html-parser';
 
+// Konva-based renderer
+export * from './konva-renderer';
+
 // Main component
 export { RichTextNode } from './RichTextNode';

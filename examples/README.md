@@ -1,6 +1,36 @@
-# Character-Level Editing Examples
+# RichText Component Examples
 
-This folder contains examples demonstrating the **character-level editing** capabilities of the RichText component.
+This folder contains comprehensive examples and demos for the **RichText component**.
+
+## 📖 What's Available
+
+### **[ExamplesPage.tsx](./ExamplesPage.tsx)** - Complete Interactive Examples
+A comprehensive, production-ready examples page with **12 interactive demos** covering:
+- Quick Start
+- Basic Styling
+- Text Alignment
+- Transformations
+- Character-Level Styling
+- Lists
+- Interactive Editing
+- Advanced Styling (stroke, shadow, highlights)
+- Transformer Integration
+- Multiple Text Boxes
+- Programmatic Control
+- Serialization
+- Complex Document Editor Example
+- Best Practices
+
+Perfect for learning all features of the component!
+
+### **[index.html](./index.html)** - Examples Hub
+A beautiful landing page with links to all examples and documentation.
+
+---
+
+## Character-Level Editing Examples
+
+This section contains examples demonstrating the **character-level editing** capabilities of the RichText component.
 
 ## What is Character-Level Editing?
 

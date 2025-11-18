@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Konva from 'konva';
-import { RichTextNode, createDocument, TextAlign } from './rich-text';
+import { RichText } from './components';
+import { TextAlign } from './rich-text';
 
 interface ToolbarProps {
-  activeNode: RichTextNode | null;
+  activeNode: RichText | null;
   onAddTextBox: () => void;
 }
 
@@ -436,8 +437,8 @@ const App: React.FC = () => {
   const stageRef = useRef<Konva.Stage | null>(null);
   const layerRef = useRef<Konva.Layer | null>(null);
   const transformerRef = useRef<Konva.Transformer | null>(null);
-  const [activeNode, setActiveNode] = useState<RichTextNode | null>(null);
-  const textNodesRef = useRef<RichTextNode[]>([]);
+  const [activeNode, setActiveNode] = useState<RichText | null>(null);
+  const textNodesRef = useRef<RichText[]>([]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -479,23 +480,19 @@ const App: React.FC = () => {
     layer.add(transformer);
     transformerRef.current = transformer;
 
-    // Create initial text box with sample content
-    const initialDoc = createDocument(
-      'Welcome to the Rich Text Editor!\n\nThis is a fully custom text engine built on Konva.js canvas.\n\nFeatures:\n• Multi-line text with reflow\n• Per-character styling\n• Full keyboard editing\n• Mouse selection\n• Undo/Redo support\n• Resizable text boxes\n• Rotate & transform\n\nClick to edit, drag to select!',
-      {
-        fontSize: 18,
-        fontFamily: 'Arial',
-        color: '#333333',
-        lineHeight: 1.5,
-      }
-    );
-
-    const textNode = new RichTextNode({
+    // Create initial text box with sample content using new RichText component
+    const textNode = new RichText({
       x: 100,
       y: 100,
       width: 400,
       height: 450,
-      document: initialDoc,
+      text: 'Welcome to the Rich Text Editor!\n\nThis is a fully custom text engine built on Konva.js canvas.\n\nFeatures:\n• Multi-line text with reflow\n• Per-character styling\n• Full keyboard editing\n• Mouse selection\n• Undo/Redo support\n• Resizable text boxes\n• Rotate & transform\n\nClick to edit, drag to select!',
+      style: {
+        fontSize: 18,
+        fontFamily: 'Arial',
+        color: '#333333',
+        lineHeight: 1.5,
+      },
       draggable: true,
     });
 
@@ -558,18 +555,18 @@ const App: React.FC = () => {
   const handleAddTextBox = () => {
     if (!layerRef.current || !transformerRef.current) return;
 
-    const newDoc = createDocument('New text box\n\nDouble-click to edit...', {
-      fontSize: 16,
-      fontFamily: 'Arial',
-      color: '#000000',
-    });
-
-    const textNode = new RichTextNode({
+    // Create new text box using the RichText component
+    const textNode = new RichText({
       x: 150 + textNodesRef.current.length * 50,
       y: 150 + textNodesRef.current.length * 50,
       width: 300,
       height: 200,
-      document: newDoc,
+      text: 'New text box\n\nDouble-click to edit...',
+      style: {
+        fontSize: 16,
+        fontFamily: 'Arial',
+        color: '#000000',
+      },
       draggable: true,
     });
 

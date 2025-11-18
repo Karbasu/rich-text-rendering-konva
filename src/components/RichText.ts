@@ -67,30 +67,46 @@ export class RichText extends Konva.Group {
   private _height: number;
 
   constructor(config: RichTextConfig) {
-    super(config);
+    // Extract width/height and RichText-specific props before passing to super
+    // (Konva.Group doesn't have these properties)
+    const {
+      width,
+      height,
+      text,
+      document: docConfig,
+      style,
+      placeholder,
+      editable,
+      align,
+      verticalAlign,
+      padding,
+      ...groupConfig
+    } = config;
 
-    this._width = config.width;
-    this._height = config.height;
+    super(groupConfig);
+
+    this._width = width;
+    this._height = height;
 
     // Create the document
     let document: RichTextDocument;
-    if (config.document) {
-      document = config.document;
-    } else if (config.text) {
-      document = createDocument(config.text, config.style);
+    if (docConfig) {
+      document = docConfig;
+    } else if (text) {
+      document = createDocument(text, style);
     } else {
       document = createEmptyDocument();
     }
 
     // Apply alignment if provided
-    if (config.align) {
-      document = { ...document, align: config.align };
+    if (align) {
+      document = { ...document, align };
     }
-    if (config.verticalAlign) {
-      document = { ...document, verticalAlign: config.verticalAlign };
+    if (verticalAlign) {
+      document = { ...document, verticalAlign };
     }
-    if (config.padding !== undefined) {
-      document = { ...document, padding: config.padding };
+    if (padding !== undefined) {
+      document = { ...document, padding };
     }
 
     // Create the internal RichTextNode
@@ -100,8 +116,8 @@ export class RichText extends Konva.Group {
       width: this._width,
       height: this._height,
       document,
-      placeholder: config.placeholder,
-      editable: config.editable,
+      placeholder,
+      editable,
     });
 
     // Add to group

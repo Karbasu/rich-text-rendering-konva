@@ -1,13 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import App from './App';
 import ExamplesPage from '../examples/ExamplesPage';
 
 const AppRouter: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<'main' | 'examples'>('main');
 
+  // Update body overflow based on current page
+  useEffect(() => {
+    if (currentPage === 'examples') {
+      // Allow scrolling on examples page
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.overflow = 'auto';
+    } else {
+      // Prevent scrolling on main editor (Konva handles its own scrolling)
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+    };
+  }, [currentPage]);
+
   if (currentPage === 'examples') {
     return (
-      <div>
+      <div style={{
+        width: '100%',
+        minHeight: '100vh',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        position: 'relative',
+      }}>
         <div style={{
           position: 'fixed',
           top: '20px',

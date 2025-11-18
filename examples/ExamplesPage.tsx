@@ -13,8 +13,9 @@ const ExamplesPage: React.FC = () => {
     <div style={{
       maxWidth: '1400px',
       margin: '0 auto',
-      padding: '40px 20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      padding: '80px 20px 40px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      minHeight: '100vh',
     }}>
       {/* Header */}
       <header style={{ marginBottom: '60px', textAlign: 'center' }}>
